@@ -30,7 +30,7 @@ provider "aws" {
   profile             = var.credentials.profile # pra quem trabalha com mfa
 
 
-  # Essas tags serão adicionadas para todo recurso que for criado
+  # Essas tags serão adicionadas para qualquer recurso que for criado
   default_tags {
     tags = {
       owner       = "vitor"
