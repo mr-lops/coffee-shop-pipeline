@@ -1,165 +1,12 @@
-# Cria um bucket S3
-resource "aws_s3_bucket" "ingest-data" {
-  bucket = "bucket-ingest-21-10-2023"
-
-  force_destroy = true
-}
-
-#  cria uma nova fila SQS chamada "ingest-data-queue". A fila será usada para armazenar mensagens relacionadas à ingestão de dados.
-resource "aws_sqs_queue" "ingest-data-queue" {
-  name = "ingest-data-queue"
-}
-
-# Definindo uma política de IAM para permitir que um bucket S3 envie mensagens para uma fila SQS
-data "aws_iam_policy_document" "ingest-data-policy" {
-  statement {
-    # Ação permitida: Enviar mensagem para a fila SQS
-    actions = ["sqs:SendMessage"]
-    effect  = "Allow"
-
-    # Ação permitida apenas para o serviço S3
-    principals {
-      identifiers = ["s3.amazonaws.com"]
-      type        = "Service"
-    }
-
-    # Recurso alvo: ARN da fila SQS
-    resources = [aws_sqs_queue.ingest-data-queue.arn]
-
-    # Condição para permitir a ação apenas se o ARN do bucket S3 for semelhante ao especificado como fonte
-    condition {
-      test     = "ArnLike"
-      values   = [aws_s3_bucket.ingest-data.arn]
-      variable = "aws:SourceArn"
-    }
-  }
-}
-
-# Criando uma política para a fila SQS usando a política de IAM definida anteriormente
-resource "aws_sqs_queue_policy" "ingest-data-queue-policy" {
-  # A política da fila é igual à política de IAM definida acima
-  policy = data.aws_iam_policy_document.ingest-data-policy.json
-
-  # URL da fila SQS
-  queue_url = aws_sqs_queue.ingest-data-queue.id
-}
-
-
-# sempre que um objeto é criado no bucket ingest-data, um evento deve ser enviado para a fila SQS criada anteriormente.
-resource "aws_s3_bucket_notification" "ingest-data-bucket-notification" {
-  bucket = aws_s3_bucket.ingest-data.id
-
-  queue {
-    queue_arn = aws_sqs_queue.ingest-data-queue.arn
-    events    = ["s3:ObjectCreated:*"]
-  }
-
-  depends_on = [aws_sqs_queue_policy.ingest-data-queue-policy]
-}
-
-# Este bloco de recurso cria um repositório ECR com o nome "ingest-data-repository". 
-# O Amazon Elastic Container Registry é um serviço da AWS que permite armazenar, gerenciar e distribuir imagens de contêiner Docker.
-resource "aws_ecr_repository" "ingest-data-repository" {
-  name = "ingest-data-repository"
-}
-
-# Este bloco de recurso cria um grupo de logs do CloudWatch com o nome "ingest-data-log-group". 
+# Este bloco de recurso cria um grupo de logs do CloudWatch com o nome "ingest-data-log-group".
 # O Amazon CloudWatch é um serviço de monitoramento e registro da AWS que permite coletar, armazenar e consultar logs e métricas.
 resource "aws_cloudwatch_log_group" "ingest-data-log-group" {
   name              = "ingest-data-log-group"
-  retention_in_days = 15
-}
-
-# Definindo a IAM Role para a execução de tarefas ECS
-resource "aws_iam_role" "ecs-execution-role" {
-  name = "ecs-execution-role"
-
-  # Política que permite que as tarefas ECS sejam executadas
-  assume_role_policy = jsonencode({
-    "Version" : "2012-10-17",
-    "Statement" : [
-      {
-        "Action" : "sts:AssumeRole",
-        "Principal" : {
-          "Service" : "ecs-tasks.amazonaws.com"
-        },
-        "Effect" : "Allow",
-        "Sid" : ""
-      }
-    ]
-  })
-}
-
-# Anexando uma política predefinida à IAM Role de execução ECS
-resource "aws_iam_policy_attachment" "ecs-execution-role" {
-  name       = "AmazonECSTaskExecutionRolePolicy"
-  roles      = [aws_iam_role.ecs-execution-role.name]
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
-
-# Definindo a IAM Role para tarefas ECS
-resource "aws_iam_role" "ecs-task-role" {
-  name = "ecs-task-role"
-
-  # Política que permite que as tarefas ECS interajam com recursos específicos
-  assume_role_policy = jsonencode({
-    "Version" : "2012-10-17",
-    "Statement" : [
-      {
-        "Action" : "sts:AssumeRole",
-        "Principal" : {
-          "Service" : "ecs-tasks.amazonaws.com"
-        },
-        "Effect" : "Allow",
-        "Sid" : ""
-      }
-    ]
-  })
-}
-
-# Definindo uma política personalizada para permitir interações com Redshift, S3 e SQS
-resource "aws_iam_policy" "ecs-redshift-access" {
-  name        = "ecs-redshift-access"
-  description = "Permite a task ECS interagir com o Redshift"
-
-  policy = jsonencode(
-    {
-      "Version" : "2012-10-17",
-      "Statement" : [
-        {
-          "Effect" : "Allow",
-          "Action" : "redshift:GetClusterCredentials",
-          "Resource" : "${aws_redshift_cluster.redshift-cluster.arn}"
-        },
-        {
-          "Effect" : "Allow",
-          "Action" : [
-            "s3:GetObject",
-            "s3:ListBucket"
-          ],
-          "Resource" : [
-            "${aws_s3_bucket.ingest-data.arn}",
-            "${aws_s3_bucket.ingest-data.arn}/*"
-          ]
-        },
-        {
-          "Effect" : "Allow",
-          "Action" : ["sqs:ReceiveMessage", "sqs:ChangeMessageVisibility", "sqs:DeleteMessage"],
-          "Resource" : "${aws_sqs_queue.ingest-data-queue.arn}"
-        }
-      ]
-    }
-  )
-}
-
-# Anexando a política personalizada à IAM Role de tarefas ECS
-resource "aws_iam_role_policy_attachment" "ecs-task-role-policy-attachment" {
-  policy_arn = aws_iam_policy.ecs-redshift-access.arn
-  role       = aws_iam_role.ecs-task-role.arn
+  retention_in_days = 14
 }
 
 
-# CRIAR PROPRIA SUBNET e VPC
+# CRIAR uma VPC com 2 subnet
 # Definindo um grupo de subnets para o Amazon Redshift
 resource "aws_redshift_subnet_group" "ingest-data-subnet-group" {
   name       = "ingest-data-subnet-group"                               # Nome do grupo de subnets
@@ -169,7 +16,7 @@ resource "aws_redshift_subnet_group" "ingest-data-subnet-group" {
 # Criando um cluster Amazon Redshift
 resource "aws_redshift_cluster" "redshift-cluster" {
   cluster_identifier        = "redshift-cluster"                                      # Identificador único para o cluster Redshift
-  database_name             = "ingest_data"                                           # Nome do banco de dados dentro do cluster
+  database_name             = "ingest-data-db"                                        # Nome do banco de dados dentro do cluster
   master_username           = var.master_username                                     # Usuário mestre para autenticação no banco de dados
   master_password           = var.master_password                                     # Senha do usuário mestre
   node_type                 = "dc2.large"                                             # Tipo de nó para o cluster
@@ -181,20 +28,23 @@ resource "aws_redshift_cluster" "redshift-cluster" {
   cluster_subnet_group_name = aws_redshift_subnet_group.ingest-data-subnet-group.name # Nome do grupo de subnets associado ao cluster
 }
 
-# Definindo um cluster Amazon ECS
-resource "aws_ecs_cluster" "ingest-data-ecs-cluster" {
-  name = "ingest-data-ecs-cluster" # Nome do cluster ECS
-}
+
 
 # Definindo uma definição de tarefa para o Amazon ECS
 resource "aws_ecs_task_definition" "ingest-data-task" {
-  family                   = "inges-daa-task"                    # Nome da família da tarefa
-  requires_compatibilities = ["FARGATE"]                         # Tipo de compatibilidade da tarefa (FARGATE para uso sem servidor)
-  network_mode             = "awsvpc"                            # Modo de rede da tarefa
-  cpu                      = "256"                               # Unidades de CPU alocadas para a tarefa
-  memory                   = "512"                               # Memória alocada para a tarefa
-  execution_role_arn       = aws_iam_role.ecs-execution-role.arn # ARN da função de execução da tarefa
-  task_role_arn            = aws_iam_role.ecs-task-role.arn      # ARN da função da tarefa
+  family                   = "ingest-data-task"             # Nome da família da tarefa
+  requires_compatibilities = ["FARGATE"]                    # Tipo de compatibilidade da tarefa (FARGATE para uso sem servidor)
+  network_mode             = "awsvpc"                       # Modo de rede da tarefa
+  cpu                      = "1024"                         # Unidades de CPU alocadas para a tarefa
+  memory                   = "2048"                         # Memória alocada para a tarefa
+  execution_role_arn       = aws_iam_role.ecs-task-role.arn # ARN da função de execução da tarefa
+  task_role_arn            = aws_iam_role.ecs-task-role.arn # ARN da função da tarefa
+
+  # Define a plataforma de execução da tarefa ECS.
+  runtime_platform {
+    cpu_architecture        = "X86_64"
+    operating_system_family = "LINUX"
+  }
 
   # Dentro do jsonencode tem uma lista pois é possivel definir mais de um container
   container_definitions = jsonencode([{
@@ -205,7 +55,7 @@ resource "aws_ecs_task_definition" "ingest-data-task" {
       "logDriver" : "awslogs", # Configuração de log usando CloudWatch Logs
       options : {
         "awslogs-group" : aws_cloudwatch_log_group.ingest-data-log-group.name, # Nome do grupo de logs do CloudWatch
-        "awslogs-region" : "us-east-1",                                        # Região do CloudWatch Logs
+        "awslogs-region" : var.credentials.region,                             # Região do CloudWatch Logs
         "awslogs-stream-prefix" : "ecs"                                        # Prefixo do stream de logs
       }
     },
@@ -251,11 +101,11 @@ resource "aws_ecs_service" "ingest-data-service" {
 
 # Definindo um alvo de escala para o serviço ECS
 resource "aws_appautoscaling_target" "autoscaling-target" {
-  max_capacity       = 1                                                                                                     # Número máximo de instâncias ou tarefas que o autoescala pode ajustar
-  min_capacity       = 0                                                                                                     # Número mínimo de instâncias ou tarefas que o autoescala pode ajustar (pode ser zero para ECS)
-  resource_id        = "service/${aws_ecs_cluster.ingest-data-ecs-cluster.name}/${aws_ecs_service.ingest-data-service.name}" # Identificador do recurso ECS a ser autoescalado
-  scalable_dimension = "ecs:service:DesiredCount"                                                                            # Dimensão a ser ajustada (contagem de tarefas desejada)
-  service_namespace  = "ecs"                                                                                                 # Namespace do serviço (ECS para Elastic Container Service)
+  max_capacity       = 1                                                                                                     # Número máximo de tarefas que serão executadas, quando o serviço ECS for escalonado.
+  min_capacity       = 0                                                                                                     # Número mínimo de tarefas que serão executadas, quando o serviço ECS for escalonado.
+  resource_id        = "service/${aws_ecs_cluster.ingest-data-ecs-cluster.name}/${aws_ecs_service.ingest-data-service.name}" # Define qual serviço ECS que será escalonado.
+  scalable_dimension = "ecs:service:DesiredCount"                                                                            # Define que o alvo de escalonamento automático será a quantidade de tarefas que serão executadas.
+  service_namespace  = "ecs"                                                                                                 # Define que o alvo de escalonamento automático será um serviço ECS.
 }
 
 # Definindo uma política de escala para aumentar a contagem de tarefas ECS
@@ -268,9 +118,9 @@ resource "aws_appautoscaling_policy" "scale-up" {
 
   # Configuração da política de escala em etapas
   step_scaling_policy_configuration {
-    adjustment_type         = "ChangeInCapacity" # Tipo de ajuste (alteração na capacidade)
-    cooldown                = 300                # Período de espera entre ajustes automáticos (em segundos)
-    metric_aggregation_type = "Average"          # Tipo de agregação da métrica (média)
+    adjustment_type         = "ExactCapacity" # Tipo de ajuste (capacidade Exata)
+    cooldown                = 90              # Período de espera entre ajustes automáticos (em segundos)
+    metric_aggregation_type = "Maximum"       # Tipo de agregação da métrica (Maxima)
 
     # Definindo o ajuste da contagem de tarefas ECS quando o alarme é acionado
     step_adjustment {
@@ -280,14 +130,20 @@ resource "aws_appautoscaling_policy" "scale-up" {
   }
 }
 
-# Definindo um alarme CloudWatch para o tamanho da fila SQS
+/**
+    * Cria um alarme do CloudWatch para monitorar o tamanho da fila SQS.
+    * O alarme do CloudWatch define quando o alvo de escalonamento automático será escalonado.
+    * Quando o alarme do CloudWatch for acionado, o alvo de escalonamento automático será escalonado.
+    * Quando o alarme do CloudWatch for desacionado, o alvo deve ser escalonado para a quantidade mínima de tarefas.
+    * https://docs.aws.amazon.com/pt_br/AmazonECS/latest/developerguide/service-auto-scaling.html
+    */
 resource "aws_cloudwatch_metric_alarm" "queue-size-alarm" {
   alarm_name          = "queue-size-alarm"                        # Nome do alarme CloudWatch
   comparison_operator = "GreaterThanOrEqualToThreshold"           # Operador de comparação para a métrica
   evaluation_periods  = "1"                                       # Número de períodos de avaliação antes de ativar o alarme
   metric_name         = "ApproximateNumberOfMessagesVisible"      # Nome da métrica CloudWatch
   namespace           = "AWS/SQS"                                 # Namespace da métrica (SQS)
-  period              = "300"                                     # Período de coleta da métrica (em segundos)
+  period              = "90"                                      # Período de coleta da métrica (em segundos)
   statistic           = "Maximum"                                 # Estatística usada para avaliar a métrica (máximo)
   threshold           = "1"                                       # Limiar para acionar o alarme (quando o tamanho da fila é 1 ou mais)
   alarm_description   = "Alarme quando o tamanho da fila aumenta" # Descrição do alarme
@@ -296,6 +152,51 @@ resource "aws_cloudwatch_metric_alarm" "queue-size-alarm" {
   alarm_actions = [aws_appautoscaling_policy.scale-up.arn]
 
   # Dimensões para o alarme (nome da fila SQS)
+  dimensions = {
+    QueueName = aws_sqs_queue.ingest-data-queue.name
+  }
+}
+
+resource "aws_appautoscaling_policy" "scale_down" {
+  /**
+    * Cria uma política de escalonamento automático para o alvo de escalonamento automático.
+    * Essa policie coloca o alvo de escalonamento automático para 0 quando o alarme do CloudWatch for acionado.
+    * https://docs.aws.amazon.com/pt_br/AmazonECS/latest/developerguide/service-auto-scaling.html
+    */
+  name               = "scale_down"
+  service_namespace  = aws_appautoscaling_target.autoscaling-target.service_namespace
+  scalable_dimension = aws_appautoscaling_target.autoscaling-target.scalable_dimension
+  resource_id        = aws_appautoscaling_target.autoscaling-target.resource_id
+  policy_type        = "StepScaling"
+
+  step_scaling_policy_configuration {
+    adjustment_type         = "ExactCapacity"
+    cooldown                = 60
+    metric_aggregation_type = "Minimum"
+
+    step_adjustment {
+      metric_interval_lower_bound = 0
+      scaling_adjustment          = 0
+    }
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "queue_without_message_alarm" {
+  /**
+    * Cria um alarme do CloudWatch para monitorar o tamanho da fila SQS.
+    * Quando o alarme do CloudWatch for acionado, o alvo deve ser escalonado para 0.
+    * https://docs.aws.amazon.com/pt_br/AmazonECS/latest/developerguide/service-auto-scaling.html
+    */
+  alarm_name          = "queue_size_alarm"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "ApproximateNumberOfMessagesVisible"
+  namespace           = "AWS/SQS"
+  period              = "90"
+  statistic           = "Maximum"
+  threshold           = "1"
+  alarm_description   = "Alarm when queue size decreases"
+  alarm_actions       = [aws_appautoscaling_policy.scale-up.arn]
   dimensions = {
     QueueName = aws_sqs_queue.ingest-data-queue.name
   }
