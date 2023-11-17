@@ -1,3 +1,4 @@
 terraform.exe
 .idea/
 aws_cli.txt
+venv/
