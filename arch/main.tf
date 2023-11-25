@@ -17,9 +17,9 @@ terraform {
   #   }
 
   backend "s3" {
-    bucket = var.bucket_terraform.bucket-name
-    key    = "terraform.tfstate"
-    region = var.bucket_terraform.region
+    bucket = "bucket-terraform-lops"
+    key    = "project-aws/terraform.tfstate"
+    region = "us-east-1"
   }
 }
 
@@ -27,13 +27,11 @@ terraform {
 provider "aws" {
   shared_config_files = var.credentials.credentials_file # onde que ele ira pegar as credenciais
   region              = var.credentials.region
-  profile             = var.credentials.profile # pra quem trabalha com mfa
 
 
   # Essas tags serão adicionadas para qualquer recurso que for criado
   default_tags {
     tags = {
-      owner       = "vitor"
       managed-by  = "terraform"
       environment = "dev"
       team        = "data"
