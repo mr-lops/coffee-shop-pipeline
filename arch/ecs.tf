@@ -79,8 +79,8 @@ resource "aws_ecs_service" "ingest-data-service" {
   launch_type     = "FARGATE"                                    # Tipo de lançamento da tarefa (FARGATE para uso sem servidor)
 
   network_configuration {
-    subnets          = ["subnet-0f569d8ffdfb95c82", "subnet-0b1081eed0310fc5f"] # IDs das subnets para a tarefa
-    security_groups  = ["sg-04fff701f33798c5a"]                                 # IDs do grupo de segurança associado à tarefa
-    assign_public_ip = true                                                     # Permite a atribuição de um IP público à tarefa (NÃO RECOMENDADO para produção)
+    subnets          = [aws_subnet.ingest-data-private-subnet.id, aws_subnet.ingest-data-public-subnet.id] # IDs das subnets para a tarefa
+    security_groups  = [aws_security_group.ingest-data-sg.id]                                              # IDs do grupo de segurança associado à tarefa
+    assign_public_ip = true                                                                                # Permite a atribuição de um IP público à tarefa (NÃO RECOMENDADO para produção)
   }
 }

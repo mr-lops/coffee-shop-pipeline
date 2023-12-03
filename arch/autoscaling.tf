@@ -29,12 +29,27 @@ resource "aws_appautoscaling_policy" "scale-up" {
   }
 }
 
-/**
-    * Cria um alarme do CloudWatch para monitorar o tamanho da fila SQS.
-    * O alarme do CloudWatch define quando o alvo de escalonamento automático será escalonado.
-    * Quando o alarme do CloudWatch for acionado, o alvo de escalonamento automático será escalonado.
-    * Quando o alarme do CloudWatch for desacionado, o alvo deve ser escalonado para a quantidade mínima de tarefas.
-    */
+# Definindo uma política de escala para diminuir a contagem de tarefas ECS
+resource "aws_appautoscaling_policy" "scale_down" {
+  name               = "scale_down"
+  service_namespace  = aws_appautoscaling_target.autoscaling-target.service_namespace
+  scalable_dimension = aws_appautoscaling_target.autoscaling-target.scalable_dimension
+  resource_id        = aws_appautoscaling_target.autoscaling-target.resource_id
+  policy_type        = "StepScaling"
+
+  step_scaling_policy_configuration {
+    adjustment_type         = "ExactCapacity"
+    cooldown                = 60
+    metric_aggregation_type = "Minimum"
+
+    step_adjustment {
+      metric_interval_lower_bound = 0
+      scaling_adjustment          = 0
+    }
+  }
+}
+
+# Cria um alarme do CloudWatch para monitorar o tamanho da fila SQS, o alarme tem como objetivo aumentar a quantidade de recursos escalonados
 resource "aws_cloudwatch_metric_alarm" "queue-size-alarm" {
   alarm_name          = "queue-size-alarm"                        # Nome do alarme CloudWatch
   comparison_operator = "GreaterThanOrEqualToThreshold"           # Operador de comparação para a métrica
@@ -55,36 +70,8 @@ resource "aws_cloudwatch_metric_alarm" "queue-size-alarm" {
   }
 }
 
-resource "aws_appautoscaling_policy" "scale_down" {
-  /**
-    * Cria uma política de escalonamento automático para o alvo de escalonamento automático.
-    * Essa policie coloca o alvo de escalonamento automático para 0 quando o alarme do CloudWatch for acionado.
-    * https://docs.aws.amazon.com/pt_br/AmazonECS/latest/developerguide/service-auto-scaling.html
-    */
-  name               = "scale_down"
-  service_namespace  = aws_appautoscaling_target.autoscaling-target.service_namespace
-  scalable_dimension = aws_appautoscaling_target.autoscaling-target.scalable_dimension
-  resource_id        = aws_appautoscaling_target.autoscaling-target.resource_id
-  policy_type        = "StepScaling"
-
-  step_scaling_policy_configuration {
-    adjustment_type         = "ExactCapacity"
-    cooldown                = 60
-    metric_aggregation_type = "Minimum"
-
-    step_adjustment {
-      metric_interval_lower_bound = 0
-      scaling_adjustment          = 0
-    }
-  }
-}
-
+# Cria um alarme do CloudWatch para monitorar o tamanho da fila SQS, o alarme tem como objetivo diminuir a quantidade de recursos escalonados
 resource "aws_cloudwatch_metric_alarm" "queue_without_message_alarm" {
-  /**
-    * Cria um alarme do CloudWatch para monitorar o tamanho da fila SQS.
-    * Quando o alarme do CloudWatch for acionado, o alvo deve ser escalonado para 0.
-    * https://docs.aws.amazon.com/pt_br/AmazonECS/latest/developerguide/service-auto-scaling.html
-    */
   alarm_name          = "queue_size_alarm"
   comparison_operator = "LessThanThreshold"
   evaluation_periods  = "1"

@@ -35,7 +35,7 @@ provider "aws" {
       managed-by  = "terraform"
       environment = "dev"
       team        = "data"
-      project     = "project-with-aws"
+      project     = "ingest-data-aws"
     }
   }
 }
