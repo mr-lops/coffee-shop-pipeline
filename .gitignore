@@ -4,3 +4,4 @@ aws_cli.txt
 venv/
 .terraform/
 .terraform.lock.hcl
+data/
