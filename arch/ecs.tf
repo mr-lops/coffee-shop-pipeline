@@ -16,7 +16,7 @@ resource "aws_cloudwatch_log_group" "ingest-data-log-group" {
   retention_in_days = 14
 }
 
-# Definindo uma definição de tarefa para o Amazon ECS
+# Cria uma definição de tarefa ECS para executar o container, a definição de tarefa ECS define como a tarefa será executada.
 resource "aws_ecs_task_definition" "ingest-data-task" {
   family                   = "ingest-data-task"             # Nome da família da tarefa
   requires_compatibilities = ["FARGATE"]                    # Tipo de compatibilidade da tarefa (FARGATE para uso sem servidor)
@@ -48,7 +48,7 @@ resource "aws_ecs_task_definition" "ingest-data-task" {
     environment : [
       {
         name : "redshift_host", # Variável de ambiente para o host do Amazon Redshift
-        value : aws_redshift_cluster.redshift-cluster.endpoint
+        value : aws_redshift_cluster.redshift-cluster.dns_name
       },
       {
         name : "redshift_user", # Variável de ambiente para o usuário do Amazon Redshift
