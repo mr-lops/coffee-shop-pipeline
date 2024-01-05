@@ -1,3 +1,3 @@
 all:
-	echo "Ola Mundo!"
-	aws --version
+	@echo "Ola Mundo!"
+	@terraform --version
