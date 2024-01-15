@@ -17,7 +17,7 @@ terraform {
   #   }
 
   backend "s3" {
-    bucket = "bucket-terraform-lops"
+    bucket = "my-terraform-bucket"
     key    = "project-aws/terraform.tfstate"
     region = "us-east-1"
   }

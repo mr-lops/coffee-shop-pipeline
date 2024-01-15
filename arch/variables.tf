@@ -6,4 +6,10 @@ variable "master_username" {
 variable "master_password" {
   type      = string
   sensitive = true
+  default = "abc"
+}
+
+variable "bucket_name" {
+  type = "string"
+  default = "bucket"
 }

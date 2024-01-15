@@ -24,11 +24,9 @@ data "aws_iam_policy_document" "ingest-data-policy" {
   depends_on = [aws_sqs_queue.ingest-data-queue, aws_s3_bucket.ingest-data-bucket]
 }
 
+# Policy para execução de tarefas ECS, necessária para que o ECS possa executar as tarefas.
 data "aws_iam_policy" "AmazonECSTaskExecutionRolePolicy" {
-  /**
-    * Policy para execução de tarefas ECS, necessária para que o ECS possa executar as tarefas.
-    * https://docs.aws.amazon.com/pt_br/AmazonECS/latest/developerguide/task_execution_IAM_role.html
-    */
+
   arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 

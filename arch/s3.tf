@@ -1,6 +1,6 @@
 # Cria um bucket S3
 resource "aws_s3_bucket" "ingest-data-bucket" {
-  bucket = "bucket-ingest-21-10-2023"
+  bucket = var.bucket_name
 
   force_destroy = true
 }
