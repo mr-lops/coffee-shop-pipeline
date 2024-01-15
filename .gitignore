@@ -1,7 +1,4 @@
-terraform.exe
 .idea/
-aws_cli.txt
 venv/
 .terraform/
 .terraform.lock.hcl
-data/
