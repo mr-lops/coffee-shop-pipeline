@@ -1,4 +1,4 @@
-# Coffee Shop Data Pipeline
+# Coffee Shop Sales Data Pipeline
 
 ## Index
 
