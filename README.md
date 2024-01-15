@@ -8,8 +8,7 @@
 
 ## About <a name = "about"></a>
 
-Esse projeto tem como objetivo criar caso de uso de uma pipeline de dados simples que
-utilize as ferramentas AWS, Terraform, Python, Airflow, Postgres e Power BI.
+Soon
 <br>
 
 ## How to Run the Project <a name = "run"></a>
