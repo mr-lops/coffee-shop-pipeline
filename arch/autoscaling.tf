@@ -1,35 +1,35 @@
-# Definindo um alvo de escala para o serviço ECS
+# Defining a scaling target for the ECS service
 resource "aws_appautoscaling_target" "autoscaling-target" {
-  max_capacity       = 1                                                                                                     # Número máximo de tarefas que serão executadas, quando o serviço ECS for escalonado.
-  min_capacity       = 0                                                                                                     # Número mínimo de tarefas que serão executadas, quando o serviço ECS for escalonado.
-  resource_id        = "service/${aws_ecs_cluster.ingest-data-ecs-cluster.name}/${aws_ecs_service.ingest-data-service.name}" # Define qual serviço ECS que será escalonado.
-  scalable_dimension = "ecs:service:DesiredCount"                                                                            # Define que o alvo de escalonamento automático será a quantidade de tarefas que serão executadas.
-  service_namespace  = "ecs"                                                                                                 # Define que o alvo de escalonamento automático será um serviço ECS.
+  max_capacity       = 1                                                                                                     # Maximum number of tasks to be executed when the ECS service is scaled.
+  min_capacity       = 0                                                                                                     # Minimum number of tasks to be executed when the ECS service is scaled.
+  resource_id        = "service/${aws_ecs_cluster.ingest-data-ecs-cluster.name}/${aws_ecs_service.ingest-data-service.name}" # Specifies which ECS service will be scaled.
+  scalable_dimension = "ecs:service:DesiredCount"                                                                            # Specifies that the auto-scaling target will be the number of tasks to be executed.
+  service_namespace  = "ecs"                                                                                                 # Specifies that the auto-scaling target will be an ECS service.
 }
 
-# Definindo uma política de escala para aumentar a contagem de tarefas ECS
+# Defining a scale-up policy to increase the ECS task count
 resource "aws_appautoscaling_policy" "scale-up" {
-  name               = "scale-up"                                                      # Nome da política de autoescala
-  resource_id        = aws_appautoscaling_target.autoscaling-target.resource_id        # ID do recurso a ser autoescalado
-  scalable_dimension = aws_appautoscaling_target.autoscaling-target.scalable_dimension # Dimensão a ser ajustada pela política
-  service_namespace  = aws_appautoscaling_target.autoscaling-target.service_namespace  # Namespace do serviço (ECS)
-  policy_type        = "StepScaling"                                                   # Tipo de política de autoescala (escala em etapas)
+  name               = "scale-up"                                                      # Name of the autoscale policy
+  resource_id        = aws_appautoscaling_target.autoscaling-target.resource_id        # ID of the resource to be autoscaled
+  scalable_dimension = aws_appautoscaling_target.autoscaling-target.scalable_dimension # Dimension to be adjusted by the policy
+  service_namespace  = aws_appautoscaling_target.autoscaling-target.service_namespace  # Service namespace (ECS)
+  policy_type        = "StepScaling"                                                   # Type of autoscale policy (step scaling)
 
-  # Configuração da política de escala em etapas
+  # Configuration of the step scaling policy
   step_scaling_policy_configuration {
-    adjustment_type         = "ExactCapacity" # Tipo de ajuste (capacidade Exata)
-    cooldown                = 60              # Período de espera entre ajustes automáticos (em segundos)
-    metric_aggregation_type = "Maximum"       # Tipo de agregação da métrica (Maxima)
+    adjustment_type         = "ExactCapacity" # Adjustment type (Exact capacity)
+    cooldown                = 60              # Waiting period between automatic adjustments (in seconds)
+    metric_aggregation_type = "Maximum"       # Metric aggregation type (Maximum)
 
-    # Definindo o ajuste da contagem de tarefas ECS quando o alarme é acionado
+    # Setting the adjustment of the ECS task count when the alarm is triggered
     step_adjustment {
-      metric_interval_lower_bound = 0 # Limite inferior do intervalo da métrica
-      scaling_adjustment          = 1 # Ajuste da contagem de tarefas (aumentar em 1)
+      metric_interval_lower_bound = 0 # Lower bound of the metric interval
+      scaling_adjustment          = 1 # Task count adjustment (increase by 1)
     }
   }
 }
 
-# Definindo uma política de escala para diminuir a contagem de tarefas ECS
+# Defining a scale-down policy to decrease the ECS task count
 resource "aws_appautoscaling_policy" "scale_down" {
   name               = "scale_down"
   service_namespace  = aws_appautoscaling_target.autoscaling-target.service_namespace
@@ -49,28 +49,28 @@ resource "aws_appautoscaling_policy" "scale_down" {
   }
 }
 
-# Cria um alarme do CloudWatch para monitorar o tamanho da fila SQS, o alarme tem como objetivo aumentar a quantidade de recursos escalonados
+# Creates a CloudWatch alarm to monitor the size of the SQS queue; the alarm aims to increase the number of scaled resources
 resource "aws_cloudwatch_metric_alarm" "queue-size-alarm" {
-  alarm_name          = "queue-size-alarm"                        # Nome do alarme CloudWatch
-  comparison_operator = "GreaterThanOrEqualToThreshold"           # Operador de comparação para a métrica
-  evaluation_periods  = "1"                                       # Número de períodos de avaliação antes de ativar o alarme
-  metric_name         = "ApproximateNumberOfMessagesVisible"      # Nome da métrica CloudWatch
-  namespace           = "AWS/SQS"                                 # Namespace da métrica (SQS)
-  period              = "60"                                      # Período de coleta da métrica (em segundos)
-  statistic           = "Maximum"                                 # Estatística usada para avaliar a métrica (máximo)
-  threshold           = "1"                                       # Limiar para acionar o alarme (quando o tamanho da fila é 1 ou mais)
-  alarm_description   = "Alarme quando o tamanho da fila aumenta" # Descrição do alarme
+  alarm_name          = "queue-size-alarm"                    # Name of the CloudWatch alarm
+  comparison_operator = "GreaterThanOrEqualToThreshold"       # Comparison operator for the metric
+  evaluation_periods  = "1"                                   # Number of evaluation periods before triggering the alarm
+  metric_name         = "ApproximateNumberOfMessagesVisible"  # Name of the CloudWatch metric
+  namespace           = "AWS/SQS"                             # Metric namespace (SQS)
+  period              = "60"                                  # Collection period of the metric (in seconds)
+  statistic           = "Maximum"                             # Statistic used to evaluate the metric (maximum)
+  threshold           = "1"                                   # Threshold to trigger the alarm (when the queue size is 1 or more)
+  alarm_description   = "Alarm when the queue size increases" # Alarm description
 
-  # Ação a ser tomada quando o alarme é acionado (aumentar a contagem de tarefas ECS)
+  # Action to be taken when the alarm is triggered (increase the ECS task count)
   alarm_actions = [aws_appautoscaling_policy.scale-up.arn]
 
-  # Dimensões para o alarme (nome da fila SQS)
+  # Dimensions for the alarm (SQS queue name)
   dimensions = {
     QueueName = aws_sqs_queue.ingest-data-queue.name
   }
 }
 
-# Cria um alarme do CloudWatch para monitorar o tamanho da fila SQS, o alarme tem como objetivo diminuir a quantidade de recursos escalonados
+# Creates a CloudWatch alarm to monitor the size of the SQS queue; the alarm aims to decrease the number of scaled resources
 resource "aws_cloudwatch_metric_alarm" "queue_without_message_alarm" {
   alarm_name          = "queue_size_alarm"
   comparison_operator = "LessThanThreshold"

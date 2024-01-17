@@ -1,86 +1,86 @@
-# Definindo um cluster Amazon ECS
+# Defining an Amazon ECS cluster
 resource "aws_ecs_cluster" "ingest-data-ecs-cluster" {
-  name = "ingest-data-ecs-cluster" # Nome do cluster ECS
+  name = "ingest-data-ecs-cluster" # Name of the ECS cluster
 }
 
-# cria um repositório ECR com o nome "ingest-data-repository".
-# O Amazon Elastic Container Registry é um serviço da AWS que permite armazenar, gerenciar e distribuir imagens de contêiner Docker.
+# Creates an ECR repository with the name "ingest-data-repository".
+# Amazon Elastic Container Registry is an AWS service that allows storing, managing, and distributing Docker container images.
 resource "aws_ecr_repository" "ingest-data-repository" {
   name = "ingest-data-repository"
 }
 
-# Este bloco de recurso cria um grupo de logs do CloudWatch com o nome "ingest-data-log-group".
-# O Amazon CloudWatch é um serviço de monitoramento e registro da AWS que permite coletar, armazenar e consultar logs e métricas.
+# This resource block creates a CloudWatch log group with the name "ingest-data-log-group".
+# Amazon CloudWatch is an AWS monitoring and logging service that allows collecting, storing, and querying logs and metrics.
 resource "aws_cloudwatch_log_group" "ingest-data-log-group" {
   name              = "ingest-data-log-group"
   retention_in_days = 14
 }
 
-# Cria uma definição de tarefa ECS para executar o container, a definição de tarefa ECS define como a tarefa será executada.
+# Creates an ECS task definition to run the container; the ECS task definition defines how the task will be executed.
 resource "aws_ecs_task_definition" "ingest-data-task" {
-  family                   = "ingest-data-task"             # Nome da família da tarefa
-  requires_compatibilities = ["FARGATE"]                    # Tipo de compatibilidade da tarefa (FARGATE para uso sem servidor)
-  network_mode             = "awsvpc"                       # Modo de rede da tarefa
-  cpu                      = "1024"                         # Unidades de CPU alocadas para a tarefa
-  memory                   = "2048"                         # Memória alocada para a tarefa
-  execution_role_arn       = aws_iam_role.ecs-task-role.arn # ARN da função de execução da tarefa
-  task_role_arn            = aws_iam_role.ecs-task-role.arn # ARN da função da tarefa
+  family                   = "ingest-data-task"             # Task family name
+  requires_compatibilities = ["FARGATE"]                    # Task compatibility type (FARGATE for serverless usage)
+  network_mode             = "awsvpc"                       # Task network mode
+  cpu                      = "1024"                         # CPU units allocated for the task
+  memory                   = "2048"                         # Memory allocated for the task
+  execution_role_arn       = aws_iam_role.ecs-task-role.arn # ARN of the task execution role
+  task_role_arn            = aws_iam_role.ecs-task-role.arn # ARN of the task role
 
-  # Define a plataforma de execução da tarefa ECS.
+  # Defines the ECS task runtime platform.
   runtime_platform {
     cpu_architecture        = "X86_64"
     operating_system_family = "LINUX"
   }
 
-  # Dentro do jsonencode tem uma lista pois é possivel definir mais de um container
+  # Inside the jsonencode is a list since it's possible to define more than one container
   container_definitions = jsonencode([{
-    name      = "ingest-data-image"                                                  # Nome do contêiner
-    image     = "${aws_ecr_repository.ingest-data-repository.repository_url}:latest" # URL da imagem do repositório ECR
-    essential = true                                                                 # Indica que o contêiner é essencial para a tarefa
+    name      = "ingest-data-image"                                                  # Container name
+    image     = "${aws_ecr_repository.ingest-data-repository.repository_url}:latest" # ECR repository image URL
+    essential = true                                                                 # Indicates that the container is essential for the task
     logConfiguration : {
-      "logDriver" : "awslogs", # Configuração de log usando CloudWatch Logs
+      "logDriver" : "awslogs", # Log configuration using CloudWatch Logs
       options : {
-        "awslogs-group" : aws_cloudwatch_log_group.ingest-data-log-group.name, # Nome do grupo de logs do CloudWatch
-        "awslogs-region" : var.credentials.region,                             # Região do CloudWatch Logs
-        "awslogs-stream-prefix" : "ecs"                                        # Prefixo do stream de logs
+        "awslogs-group" : aws_cloudwatch_log_group.ingest-data-log-group.name, # CloudWatch log group name
+        "awslogs-region" : var.credentials.region,                             # CloudWatch Logs region
+        "awslogs-stream-prefix" : "ecs"                                        # Log stream prefix
       }
     },
     environment : [
       {
-        name : "redshift_host", # Variável de ambiente para o host do Amazon Redshift
+        name : "redshift_host", # Environment variable for Amazon Redshift host
         value : aws_redshift_cluster.redshift-cluster.dns_name
       },
       {
-        name : "redshift_user", # Variável de ambiente para o usuário do Amazon Redshift
+        name : "redshift_user", # Environment variable for Amazon Redshift user
         value : var.master_username
       },
       {
-        name : "redshift_password", # Variável de ambiente para a senha do Amazon Redshift
+        name : "redshift_password", # Environment variable for Amazon Redshift password
         value : var.master_password
       },
       {
-        name : "redshift_db", # Variável de ambiente para o nome do banco de dados Amazon Redshift
+        name : "redshift_db", # Environment variable for Amazon Redshift database name
         value : aws_redshift_cluster.redshift-cluster.database_name
       },
       {
-        name : "sqs_queue_url", # Variável de ambiente para a URL da fila SQS
+        name : "sqs_queue_url", # Environment variable for SQS queue URL
         value : aws_sqs_queue.ingest-data-queue.id
       }
     ]
   }])
 }
 
-# Criando um serviço Amazon ECS
+# Creating an ECS service
 resource "aws_ecs_service" "ingest-data-service" {
-  name            = "ingest-data-service"                        # Nome do serviço ECS
-  cluster         = aws_ecs_cluster.ingest-data-ecs-cluster.id   # ID do cluster ECS
-  task_definition = aws_ecs_task_definition.ingest-data-task.arn # ARN da definição da tarefa ECS
-  desired_count   = 0                                            # Número desejado de tarefas em execução
-  launch_type     = "FARGATE"                                    # Tipo de lançamento da tarefa (FARGATE para uso sem servidor)
+  name            = "ingest-data-service"                        # ECS service name
+  cluster         = aws_ecs_cluster.ingest-data-ecs-cluster.id   # ECS cluster ID
+  task_definition = aws_ecs_task_definition.ingest-data-task.arn # ARN of the ECS task definition
+  desired_count   = 0                                            # Desired number of running tasks
+  launch_type     = "FARGATE"                                    # Task launch type (FARGATE for serverless usage)
 
   network_configuration {
-    subnets          = [aws_subnet.ingest-data-private-subnet.id, aws_subnet.ingest-data-public-subnet.id] # IDs das subnets para a tarefa
-    security_groups  = [aws_security_group.ingest-data-sg.id]                                              # IDs do grupo de segurança associado à tarefa
-    assign_public_ip = true                                                                                # Permite a atribuição de um IP público à tarefa (NÃO RECOMENDADO para produção)
+    subnets          = [aws_subnet.ingest-data-private-subnet.id, aws_subnet.ingest-data-public-subnet.id] # Subnet IDs for the task
+    security_groups  = [aws_security_group.ingest-data-sg.id]                                              # Security group IDs associated with the task
+    assign_public_ip = true                                                                                # Allows assigning a public IP to the task (NOT RECOMMENDED for production)
   }
 }

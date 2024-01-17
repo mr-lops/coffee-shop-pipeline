@@ -1,11 +1,11 @@
-# Cria um bucket S3
+# Create an S3 bucket
 resource "aws_s3_bucket" "ingest-data-bucket" {
   bucket = var.bucket_name
 
   force_destroy = true
 }
 
-# sempre que um objeto é criado no bucket ingest-data, um evento deve ser enviado para a fila SQS criada anteriormente.
+# Whenever an object is created in the ingest-data bucket, an event should be sent to the previously created SQS queue.
 resource "aws_s3_bucket_notification" "ingest-data-bucket-notification" {
   bucket = aws_s3_bucket.ingest-data-bucket.id
 
@@ -16,4 +16,3 @@ resource "aws_s3_bucket_notification" "ingest-data-bucket-notification" {
 
   depends_on = [aws_sqs_queue_policy.ingest-data-queue-policy]
 }
-

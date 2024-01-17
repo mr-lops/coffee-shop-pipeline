@@ -1,10 +1,10 @@
-# configura oque o terraform precisa para iniciar
+# Configure what Terraform needs to start
 terraform {
 
-  #Define versão do Terraform que irá ser utilizada
+  # Define the Terraform version to be used
   required_version = "~> 1.6.0"
 
-  # Define os providers que serão utilizados
+  # Define the providers that will be used
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -12,10 +12,12 @@ terraform {
     }
   }
 
-  #   backend "local" {
-  #     path = "terraform_state/terraform.tfstate"
-  #   }
+  # Uncomment the following block to use the local backend
+  # backend "local" {
+  #   path = "terraform_state/terraform.tfstate"
+  # }
 
+  # Configure the S3 backend
   backend "s3" {
     bucket = "my-terraform-bucket"
     key    = "project-aws/terraform.tfstate"
@@ -23,13 +25,12 @@ terraform {
   }
 }
 
-# Configurando o provider AWS no Terraform
+# Configuring the AWS provider in Terraform
 provider "aws" {
-  shared_config_files = var.credentials.credentials_file # onde que ele ira pegar as credenciais
+  shared_config_files = var.credentials.credentials_file # where it will fetch the credentials
   region              = var.credentials.region
 
-
-  # Essas tags serão adicionadas para qualquer recurso que for criado
+  # These tags will be added to any resource that is created
   default_tags {
     tags = {
       managed-by  = "terraform"

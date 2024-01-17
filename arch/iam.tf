@@ -1,20 +1,20 @@
-# Definindo uma política de IAM para permitir que um bucket S3 envie mensagens para uma fila SQS
+# Defining an IAM policy to allow an S3 bucket to send messages to an SQS queue
 data "aws_iam_policy_document" "ingest-data-policy" {
   statement {
-    # Ação permitida: Enviar mensagem para a fila SQS
+    # Allowed action: Send message to SQS queue
     actions = ["sqs:SendMessage"]
     effect  = "Allow"
 
-    # Ação permitida apenas para o serviço S3
+    # Allowed action only for the S3 service
     principals {
       identifiers = ["s3.amazonaws.com"]
       type        = "Service"
     }
 
-    # Recurso alvo: ARN da fila SQS
+    # Target resource: SQS queue ARN
     resources = [aws_sqs_queue.ingest-data-queue.arn]
 
-    # Condição para permitir a ação apenas se o ARN do bucket S3 for semelhante ao especificado como fonte
+    # Condition to allow the action only if the S3 bucket ARN is similar to the specified source
     condition {
       test     = "ArnLike"
       values   = [aws_s3_bucket.ingest-data-bucket.arn]
@@ -24,17 +24,16 @@ data "aws_iam_policy_document" "ingest-data-policy" {
   depends_on = [aws_sqs_queue.ingest-data-queue, aws_s3_bucket.ingest-data-bucket]
 }
 
-# Policy para execução de tarefas ECS, necessária para que o ECS possa executar as tarefas.
+# Policy for ECS task execution, required for ECS to execute tasks.
 data "aws_iam_policy" "AmazonECSTaskExecutionRolePolicy" {
-
   arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# Role para execução de tarefas ECS, necessária para que o ECS possa executar as tarefas.
+# Role for ECS task execution, required for ECS to execute tasks.
 resource "aws_iam_role" "ecs-task-role" {
   name = "ecs-task-role"
 
-  # Política que permite que as tarefas ECS interajam com recursos específicos
+  # Policy allowing ECS tasks to interact with specific resources
   assume_role_policy = jsonencode({
     "Version" : "2012-10-17",
     "Statement" : [
@@ -50,10 +49,10 @@ resource "aws_iam_role" "ecs-task-role" {
   })
 }
 
-# Definindo uma política para permitir que o ECS acesse o Redshift, S3 e SQS
+# Defining a policy to allow ECS to access Redshift, S3, and SQS
 resource "aws_iam_policy" "ecs-redshift-access" {
   name        = "ecs-redshift-access"
-  description = "Permite a task ECS interagir com o Redshift"
+  description = "Allows ECS task to interact with Redshift"
 
   policy = jsonencode(
     {
@@ -85,26 +84,25 @@ resource "aws_iam_policy" "ecs-redshift-access" {
   )
 }
 
-# Anexa a policy AmazonECSTaskExecutionRolePolicy à role ecs_task_role
-# Isso permite que a role ecs_task_role possua as permissões da policy
+# Attaches the AmazonECSTaskExecutionRolePolicy policy to the ecs_task_role role
+# This allows the ecs_task_role role to have the permissions of the policy
 resource "aws_iam_role_policy_attachment" "AmazonECSTaskExecutionRolePolicy" {
   role       = aws_iam_role.ecs-task-role.name
   policy_arn = data.aws_iam_policy.AmazonECSTaskExecutionRolePolicy.arn
 }
 
-
-# Anexa a policy ecs_redshift_access à role ecs_task_role.
-# Isso permite que a role ecs_task_role possua as permissões da policy ecs_redshift_access.
+# Attaches the ecs_redshift_access policy to the ecs_task_role role
+# This allows the ecs_task_role role to have the permissions of the ecs_redshift_access policy
 resource "aws_iam_role_policy_attachment" "ecs-task-role-policy-attach" {
   policy_arn = aws_iam_policy.ecs-redshift-access.arn
   role       = aws_iam_role.ecs-task-role.arn
 }
 
-# Anexa a policy ingest-data-policy à fila ingest-data-queue.
-# Isso permite que a fila ingest-data-queue possua as permissões da policy ingest-data-policy.
+# Attaches the ingest-data-policy policy to the ingest-data-queue queue
+# This allows the ingest-data-queue queue to have the permissions of the ingest-data-policy policy
 resource "aws_sqs_queue_policy" "ingest-data-queue-policy" {
-  # A política da fila é igual à política de IAM definida
+  # The queue policy is equal to the defined IAM policy
   policy = data.aws_iam_policy_document.ingest-data-policy.json
-  # URL da fila SQS
+  # SQS queue URL
   queue_url = aws_sqs_queue.ingest-data-queue.id
 }

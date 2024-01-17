@@ -1,38 +1,38 @@
-# Definição da Virtual Private Cloud (VPC)
+# Definition of the Virtual Private Cloud (VPC)
 resource "aws_vpc" "ingest-data-vpc" {
   cidr_block = "10.0.0.0/16"
 }
 
-# Definição da Sub-rede Pública
+# Definition of the Public Subnet
 resource "aws_subnet" "ingest-data-public-subnet" {
   vpc_id     = aws_vpc.ingest-data-vpc.id
   cidr_block = "10.0.1.0/24"
 
   tags = {
-    Name = "Ingest Data Public" # Nome da sub-rede pública
+    Name = "Ingest Data Public" # Name of the public subnet
   }
 }
 
-# Definição da Sub-rede Privada
+# Definition of the Private Subnet
 resource "aws_subnet" "ingest-data-private-subnet" {
   vpc_id     = aws_vpc.ingest-data-vpc.id
   cidr_block = "10.0.2.0/24"
 
   tags = {
-    Name = "Ingest Data Private" # Nome da sub-rede privada
+    Name = "Ingest Data Private" # Name of the private subnet
   }
 }
 
-# Definição do Internet Gateway
+# Definition of the Internet Gateway
 resource "aws_internet_gateway" "ingest-data-ig" {
   vpc_id = aws_vpc.ingest-data-vpc.id
 
   tags = {
-    Name = "Ingest Data IG" # Nome do Internet Gateway
+    Name = "Ingest Data IG" # Name of the Internet Gateway
   }
 }
 
-# Definição da Tabela de Roteamento com Rota para o Internet Gateway
+# Definition of the Route Table with Route to the Internet Gateway
 resource "aws_route_table" "ingest-data-sec-rt" {
   vpc_id = aws_vpc.ingest-data-vpc.id
 
@@ -42,23 +42,23 @@ resource "aws_route_table" "ingest-data-sec-rt" {
   }
 
   tags = {
-    Name = "2nd Route Table" # Nome da tabela de roteamento
+    Name = "2nd Route Table" # Name of the route table
   }
 }
 
-# Associação da Sub-rede Pública à Tabela de Roteamento
+# Association of the Public Subnet with the Route Table
 resource "aws_route_table_association" "public-subnet-asso" {
   route_table_id = aws_route_table.ingest-data-sec-rt.id
   subnet_id      = aws_subnet.ingest-data-public-subnet.id
 }
 
-# Definição do Grupo de Segurança
+# Definition of the Security Group
 resource "aws_security_group" "ingest-data-sg" {
   vpc_id = aws_vpc.ingest-data-vpc.id
-  name   = "ingest-data-sg" # Nome do grupo de segurança
+  name   = "ingest-data-sg" # Name of the security group
 }
 
-# Regra de Segurança de Entrada (Permitindo qualquer Tráfego de Entrada)
+# Inbound Security Group Rule (Allowing any Inbound Traffic)
 resource "aws_security_group_rule" "sgr-allow-all-in" {
   from_port         = 0
   protocol          = "all"
@@ -68,7 +68,7 @@ resource "aws_security_group_rule" "sgr-allow-all-in" {
   type              = "ingress"
 }
 
-# Regra de Segurança de Saída (Permitindo qualquer Tráfego de Saída)
+# Outbound Security Group Rule (Allowing any Outbound Traffic)
 resource "aws_security_group_rule" "sgr-allow-all-out" {
   from_port         = 0
   protocol          = "all"
@@ -78,8 +78,8 @@ resource "aws_security_group_rule" "sgr-allow-all-out" {
   cidr_blocks       = [aws_vpc.ingest-data-vpc.cidr_block]
 }
 
-# Definindo um grupo de subnets para o Amazon Redshift
+# Defining a subnet group for Amazon Redshift
 resource "aws_redshift_subnet_group" "ingest-data-subnet-group" {
-  name       = "ingest-data-subnet-group"                                                          # Nome do grupo de subnets
-  subnet_ids = [aws_subnet.ingest-data-public-subnet.id, aws_subnet.ingest-data-private-subnet.id] # IDs das subnets associadas
+  name       = "ingest-data-subnet-group"                                                          # Subnet group name
+  subnet_ids = [aws_subnet.ingest-data-public-subnet.id, aws_subnet.ingest-data-private-subnet.id] # Associated subnet IDs
 }
