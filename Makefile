@@ -7,13 +7,13 @@ all: myproject
 
 myproject: dependencies terraform-bucket provide-resources create-dockerfile upload-data
 	@read -p "Press any key to finish the project."
+	@echo "Removing Resources..."
 	@terraform -chdir=arch destroy -auto-approve
 	@aws s3 rm s3://$(TERRAFORM_BUCKET_NAME) --recursive
 	@aws s3 rb s3://$(TERRAFORM_BUCKET_NAME) --force
 	@sed -i "s/$(TERRAFORM_BUCKET_NAME)/my-terraform-bucket/g" arch/main.tf
+	@echo "Project Finished!"
 
-read:
-	@read -p "Enter Module Name:" module;
 
 dependencies:
 	@echo "Dependencies Verification..."
