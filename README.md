@@ -27,7 +27,7 @@ integrate other services with Amazon Redshift to enhance the operation and maint
 - <a href="https://www.docker.com/">Docker</a>
 
 Run the following command on the Linux Terminal at the project root directory, before that, 
-change the TERRAFORM_BUCKET_NAME, PROJECT_BUCKET_NAME and REDSHIFT_PASSWORD.
+change the <b>TERRAFORM_BUCKET_NAME</b>, <b>PROJECT_BUCKET_NAME</b> and <b>REDSHIFT_PASSWORD</b>.
 
 ```
 make TERRAFORM_BUCKET_NAME=change \
